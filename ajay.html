@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Big-Small Pattern Tracker</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #eef1f5;
+      text-align: center;
+      padding: 20px;
+    }
+    .container {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      max-width: 480px;
+      margin: auto;
+      box-shadow: 0 0 10px rgba(0,0,0,0.2);
+    }
+    input, button {
+      padding: 10px;
+      margin: 6px;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+      font-size: 16px;
+    }
+    button {
+      background-color: #007bff;
+      color: white;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #0056b3;
+    }
+    p {
+      font-weight: bold;
+      font-size: 16px;
+      margin-top: 12px;
+    }
+    .output {
+      background-color: #f9f9f9;
+      border-radius: 6px;
+      padding: 12px;
+      margin-top: 10px;
+      font-size: 15px;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>Big-Small Pattern Tracker</h2>
+    <p>Enter historical number string (e.g., 192837465...):</p>
+    <input type="text" id="historicalInput" placeholder="Numbers 0-9 without spaces">
+    <button onclick="initializeTracker()">Start Analysis</button>
+
+    <div id="inputSection" style="display:none;">
+      <p>Enter new number (0-9):</p>
+      <input type="text" id="newNumber" maxlength="1">
+      <button onclick="addNewNumber()">Add Number</button>
+
+      <div class="output" id="history"></div>
+      <div class="output" id="pattern"></div>
+      <div class="output" id="prediction"></div>
+      <div class="output" id="patternMatch"></div>
+    </div>
+  </div>
+
+  <script>
+    class PatternAnalyzer {
+      constructor(history) {
+        this.history = history.split('').map(Number);
+        this.sequence = [];
+        this.patterns = {};
+      }
+
+      toBigSmall(num) {
+        return num <= 4 ? "Small" : "Big";
+      }
+
+      convertPattern(arr) {
+        return arr.map(this.toBigSmall).join("-");
+      }
+
+      generatePatternMap() {
+        for (let len = 3; len <= 10; len++) {
+          for (let i = 0; i <= this.history.length - len; i++) {
+            let key = this.history.slice(i, i + len).join('');
+            let next = this.history[i + len];
+            if (next !== undefined) {
+              if (!this.patterns[key]) this.patterns[key] = [];
+              this.patterns[key].push(next);
+            }
+          }
+        }
+      }
+
+      mostCommon(arr) {
+        const freq = {};
+        for (let val of arr) freq[val] = (freq[val] || 0) + 1;
+        return Object.keys(freq).reduce((a, b) => freq[a] > freq[b] ? a : b);
+      }
+
+      analyzeNext() {
+        let maxLen = Math.min(this.sequence.length, 10);
+        for (let len = maxLen; len >= 3; len--) {
+          let key = this.sequence.slice(-len).join('');
+          let nextOptions = this.patterns[key] || [];
+          if (nextOptions.length > 0) {
+            let predicted = parseInt(this.mostCommon(nextOptions));
+            return [predicted, this.toBigSmall(predicted), len];
+          }
+        }
+        let alt = this.aiPredict();
+        return alt ? [alt, this.toBigSmall(alt), null] : [null, null, null];
+      }
+
+      aiPredict() {
+        const counts = new Array(10).fill(0);
+        let maxLen = Math.min(this.sequence.length, 10);
+        for (let len = maxLen; len >= 3; len--) {
+          const pattern = this.sequence.slice(-len).join('');
+          for (let i = 0; i <= this.history.length - len; i++) {
+            const part = this.history.slice(i, i + len).join('');
+            if (part === pattern) {
+              const next = this.history[i + len];
+              if (next !== undefined) counts[next]++;
+            }
+          }
+          let maxCount = Math.max(...counts);
+          if (maxCount > 0) return counts.indexOf(maxCount);
+        }
+        return null;
+      }
+
+      add(num) {
+        this.sequence.push(num);
+        const historyStr = "Entered Numbers: " + this.sequence.join(' ');
+        const patternStr = "Big/Small Pattern: " + this.sequence.map(n => this.toBigSmall(n)).join(' - ');
+        const [predNum, predPat, patternLen] = this.analyzeNext();
+
+        const predictionStr = predNum !== null
+          ? `Predicted Next Number: ${predNum} → ${predPat}`
+          : `No pattern match found for sequence.`;
+
+        document.getElementById("history").innerText = historyStr;
+        document.getElementById("pattern").innerText = patternStr;
+        document.getElementById("prediction").innerText = predictionStr;
+
+        if (predNum !== null && patternLen !== null) {
+          document.getElementById("patternMatch").innerText =
+            `Matched Pattern Length: ${patternLen}, Pattern: ${this.sequence.slice(-patternLen).join('')} → Predicted: ${predNum}`;
+        } else {
+          document.getElementById("patternMatch").innerText = '';
+        }
+      }
+    }
+
+    let analyzer;
+
+    function initializeTracker() {
+      const input = document.getElementById("historicalInput").value.trim();
+      if (!/^[0-9]{4,}$/.test(input)) {
+        alert("Enter a valid number string with at least 4 digits.");
+        return;
+      }
+      analyzer = new PatternAnalyzer(input);
+      analyzer.generatePatternMap();
+      document.getElementById("inputSection").style.display = "block";
+    }
+
+    function addNewNumber() {
+      const val = document.getElementById("newNumber").value.trim();
+      if (!/^[0-9]$/.test(val)) {
+        alert("Enter a number between 0 and 9.");
+        return;
+      }
+      analyzer.add(parseInt(val));
+      document.getElementById("newNumber").value = '';
+    }
+  </script>
+</body>
+</html>
